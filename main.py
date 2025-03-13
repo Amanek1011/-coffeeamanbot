@@ -6,6 +6,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from dotenv import load_dotenv
 import keyboards as kb
+from db import db
+
 load_dotenv()
 
 TOKEN = "7623486555:AAHsFKzlQn6kZ3r27bgT7T8XNk3_PfkDsxc"
@@ -40,13 +42,13 @@ async def process_callback(callback: types.CallbackQuery):
         coffee = order.get("coffee", "?")
         size = order.get("size", "?")
         comment = order.get("comment", "Без комментария")
-
         await callback.message.answer(
             f"Ваш заказ: {coffee}, {size}.\n"
             f"Комментарий: {comment}\n"
             "Заказ принят! Будет готов в течение 5 минут."
         )
-
+        await db.add_user(user_id, callback.from_user.username, callback.from_user.first_name,
+                          coffee, size, comment)
         user_orders.pop(user_id, None)
 
     elif callback.data == "cancel":
@@ -69,9 +71,17 @@ async def process_message(message: types.Message):
         else:
             await message.answer("Пожалуйста, выберите размер кофе.", reply_markup=kb.size_menu)
 
+
 async def main():
     print("Bot started...")
-    await dp.start_polling(bot)
+    await db.connect()
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        print(e)
+    finally:
+        await db.disconnect()
+
 
 if __name__ == '__main__':
     asyncio.run(main())
